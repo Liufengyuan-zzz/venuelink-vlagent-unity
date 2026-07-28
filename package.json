@@ -1,0 +1,17 @@
+{
+  "name": "com.venuelink.vlagent",
+  "version": "0.3.0",
+  "displayName": "VenueLink VLAgent",
+  "description": "VenueLink Unity exhibit connectivity SDK: MQTT register, status/ReportState, heartbeat and LWT.",
+  "unity": "2022.3",
+  "author": {
+    "name": "VenueLink"
+  },
+  "samples": [
+    {
+      "displayName": "Basic Agent",
+      "description": "Minimal configuration-driven VLAgent bootstrap with register.",
+      "path": "Samples~/Basic"
+    }
+  ]
+}

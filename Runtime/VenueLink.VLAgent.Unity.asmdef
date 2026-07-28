@@ -1,0 +1,16 @@
+{
+  "name": "VenueLink.VLAgent.Unity",
+  "rootNamespace": "VenueLink.VLAgent.Unity",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "MQTTnet.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
