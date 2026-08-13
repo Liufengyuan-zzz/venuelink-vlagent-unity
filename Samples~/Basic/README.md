@@ -1,17 +1,15 @@
 # Basic Agent Sample
 
 1. 在 Unity Package Manager 中导入 `Basic Agent` Sample。
-2. 新建 `Assets/StreamingAssets/`。
-3. 将 Sample 中的 `vlagent.example.json` 复制为
-   `Assets/StreamingAssets/vlagent.json`。
-4. 修改：
+2. 导入 SDK 后会自动创建 `Assets/StreamingAssets/vlagent.json`（没有 StreamingAssets 会一并创建；已有文件不覆盖）。也可把 Sample 中的 `vlagent.example.json` 复制过去覆盖模板。
+3. 修改：
    - `deviceId`：每个展项唯一，例如 `exhibit-hall-a-01`（MQTT username/clientId 自动为 `agent-{deviceId}`，无需密码）
    - `brokerHost`：VLServer 局域网地址（现场勿用 `127.0.0.1`）
    - `advertisePort`：展项自身 TCP 监听端口（SDK 不监听）
-5. 在空场景中新建 GameObject，挂载 `VLAgentBootstrap`。
-6. （可选）同物体再挂 `FakeTelemetryDemo`，演示 `ReportState` 假进度/音量。
-7. 同物体挂 `FixedTcpCommandServer`：按 `advertisePort` 监听，接收中控 FixedTcp 指令（Console 会打印原文）。
-8. 启动 VLServer 后进入 Play Mode。
+4. 在空场景中新建 GameObject，挂载 `VLAgentBootstrap`。
+5. （可选）同物体再挂 `FakeTelemetryDemo`，演示 `ReportState` 假进度/音量。
+6. 同物体挂 `FixedTcpCommandServer`：按 `advertisePort` 监听，接收中控 FixedTcp 指令（Console 会打印原文）。
+7. 启动 VLServer 后进入 Play Mode。
 
 验证：
 

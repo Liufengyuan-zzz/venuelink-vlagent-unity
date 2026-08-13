@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 - 2026-08-13
+
+- 导入 SDK 或打开工程时，若缺少 `Assets/StreamingAssets/vlagent.json` 则自动创建（已有文件不覆盖）。
+- 菜单：`VenueLink / VLAgent / 补全 vlagent.json`。
+
 ## 0.3.0 - 2026-07-27
 
 - Add `ReportStateAsync` / `ClearStateAsync` for business telemetry on retained `status`.

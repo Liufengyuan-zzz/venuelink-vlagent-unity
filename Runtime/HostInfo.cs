@@ -14,7 +14,7 @@ namespace VenueLink.VLAgent.Unity
         public string Ip { get; set; } = string.Empty;
         public string Mac { get; set; } = string.Empty;
         public string Os { get; set; } = string.Empty;
-        public string AgentVersion { get; set; } = "0.3.0";
+        public string AgentVersion { get; set; } = "0.3.1";
         public string Runtime { get; set; } = "unity";
     }
 
@@ -24,7 +24,7 @@ namespace VenueLink.VLAgent.Unity
     /// </summary>
     public static class HostInfo
     {
-        public const string AgentVersion = "0.3.0";
+        public const string AgentVersion = "0.3.1";
 
         public static HostInfoSnapshot Capture(string brokerHost, int brokerPort)
         {
