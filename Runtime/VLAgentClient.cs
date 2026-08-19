@@ -12,6 +12,7 @@ namespace VenueLink.VLAgent.Unity
     public sealed class VLAgentClient : IDisposable
     {
         private readonly AgentConfig _config;
+        private readonly Action<string, string>? _persistAssignedIdentity;
         private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
         private readonly object _reconnectGate = new object();
         private readonly object _stateGate = new object();
@@ -25,10 +26,13 @@ namespace VenueLink.VLAgent.Unity
         private bool _started;
         private bool _stopping;
         private bool _disposed;
+        private int _applyingCredential;
 
-        public VLAgentClient(AgentConfig config)
+        /// <param name="persistAssignedIdentity">可选。写回配置（deviceId, mqttPassword）。</param>
+        public VLAgentClient(AgentConfig config, Action<string, string>? persistAssignedIdentity = null)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
+            _persistAssignedIdentity = persistAssignedIdentity;
         }
 
         public bool IsConnected
@@ -52,6 +56,7 @@ namespace VenueLink.VLAgent.Unity
             {
                 if (_started) return;
 
+                EnsureSessionId();
                 _config.Validate();
                 _hostSnapshot = HostInfo.Capture(_config.brokerHost, _config.brokerPort);
 
@@ -63,6 +68,7 @@ namespace VenueLink.VLAgent.Unity
                 _client = factory.CreateMqttClient();
                 _client.ConnectedAsync += OnConnectedAsync;
                 _client.DisconnectedAsync += OnDisconnectedAsync;
+                _client.ApplicationMessageReceivedAsync += OnApplicationMessageReceivedAsync;
                 _heartbeatTask = HeartbeatLoopAsync(_lifetimeCts.Token);
 
                 try
@@ -132,6 +138,7 @@ namespace VenueLink.VLAgent.Unity
         public async Task ReportRegisterAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             ThrowIfDisposed();
+            EnsureSessionId();
             _config.Validate();
             _hostSnapshot = HostInfo.Capture(_config.brokerHost, _config.brokerPort);
             await PublishRegisterAsync(cancellationToken).ConfigureAwait(false);
@@ -179,11 +186,11 @@ namespace VenueLink.VLAgent.Unity
             var statusTopic = GetStatusTopic();
             var lwtPayload = StatusPayload.CreateOffline(_config.deviceId, "lwt", useServerTimestamp: true);
 
-            var identity = "agent-" + _config.deviceId;
+            var identity = GetMqttIdentity();
             return new MqttClientOptionsBuilder()
                 .WithTcpServer(_config.brokerHost, _config.brokerPort)
                 .WithClientId(identity)
-                .WithCredentials(identity, string.Empty)
+                .WithCredentials(identity, _config.mqttPassword ?? string.Empty)
                 .WithCleanSession(true)
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(5))
                 .WithTimeout(TimeSpan.FromSeconds(10))
@@ -204,6 +211,16 @@ namespace VenueLink.VLAgent.Unity
                 if (_hostSnapshot == null)
                     _hostSnapshot = HostInfo.Capture(_config.brokerHost, _config.brokerPort);
 
+                // 始终订阅：首次确认、运维点击「下发凭据」都能自动更新本地配置。
+                if (_client != null)
+                {
+                    var filter = new MqttTopicFilterBuilder()
+                        .WithTopic(GetCredTopic())
+                        .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                        .Build();
+                    await _client.SubscribeAsync(filter, token).ConfigureAwait(false);
+                }
+
                 await PublishRegisterAsync(token).ConfigureAwait(false);
                 await PublishStatusAsync(
                     online: true,
@@ -215,6 +232,74 @@ namespace VenueLink.VLAgent.Unity
             {
                 if (ex is not OperationCanceledException)
                     BackgroundError?.Invoke(ex);
+            }
+        }
+
+        private Task OnApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args)
+        {
+            var topic = args.ApplicationMessage.Topic ?? string.Empty;
+            if (!string.Equals(topic, GetCredTopic(), StringComparison.Ordinal))
+                return Task.CompletedTask;
+
+            var payloadBytes = args.ApplicationMessage.PayloadSegment;
+            var payload = payloadBytes.Count == 0
+                ? string.Empty
+                : Encoding.UTF8.GetString(payloadBytes.Array!, payloadBytes.Offset, payloadBytes.Count);
+            if (string.IsNullOrWhiteSpace(payload))
+                return Task.CompletedTask;
+
+            var password = TryReadJsonStringProperty(payload, "mqttPassword");
+            if (string.IsNullOrEmpty(password))
+                return Task.CompletedTask;
+
+            var assignedId = TryReadJsonStringProperty(payload, "deviceId");
+            _ = ApplyCredentialAsync(
+                string.IsNullOrWhiteSpace(assignedId) ? _config.deviceId : assignedId.Trim(),
+                password);
+            return Task.CompletedTask;
+        }
+
+        private async Task ApplyCredentialAsync(string deviceId, string mqttPassword)
+        {
+            if (Interlocked.CompareExchange(ref _applyingCredential, 1, 0) != 0)
+                return;
+
+            try
+            {
+                if (string.Equals(_config.mqttPassword, mqttPassword, StringComparison.Ordinal)
+                    && string.Equals(_config.deviceId, deviceId, StringComparison.Ordinal))
+                    return;
+
+                _config.deviceId = deviceId;
+                _config.mqttPassword = mqttPassword;
+                if (_persistAssignedIdentity != null)
+                {
+                    try
+                    {
+                        _persistAssignedIdentity(deviceId, mqttPassword);
+                    }
+                    catch (Exception ex)
+                    {
+                        BackgroundError?.Invoke(ex);
+                    }
+                }
+
+                var client = _client;
+                if (client != null && client.IsConnected)
+                {
+                    try
+                    {
+                        await client.DisconnectAsync(new MqttClientDisconnectOptions()).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        BackgroundError?.Invoke(ex);
+                    }
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _applyingCredential, 0);
             }
         }
 
@@ -379,14 +464,55 @@ namespace VenueLink.VLAgent.Unity
             };
         }
 
+        private bool IsPendingSession()
+        {
+            return string.IsNullOrEmpty(_config.mqttPassword);
+        }
+
+        private void EnsureSessionId()
+        {
+            if (!IsPendingSession() || !string.IsNullOrWhiteSpace(_config.deviceId))
+                return;
+
+            _config.deviceId = Guid.NewGuid().ToString("N");
+            if (_persistAssignedIdentity == null) return;
+            try
+            {
+                _persistAssignedIdentity(_config.deviceId, string.Empty);
+            }
+            catch (Exception ex)
+            {
+                BackgroundError?.Invoke(ex);
+            }
+        }
+
+        private string GetMqttIdentity()
+        {
+            return IsPendingSession()
+                ? "agent-pending-" + _config.deviceId
+                : "agent-" + _config.deviceId;
+        }
+
+        private string TopicPrefix()
+        {
+            return IsPendingSession()
+                ? "exhibit/pending/" + _config.deviceId
+                : "exhibit/" + _config.deviceId;
+        }
+
         private string GetStatusTopic()
         {
-            return "exhibit/" + _config.deviceId + "/status";
+            return TopicPrefix() + "/status";
         }
 
         private string GetRegisterTopic()
         {
-            return "exhibit/" + _config.deviceId + "/register";
+            return TopicPrefix() + "/register";
+        }
+
+        private string GetCredTopic()
+        {
+            return TopicPrefix() + "/cred";
         }
 
         private async Task AwaitBackgroundTasksAsync()
@@ -412,6 +538,7 @@ namespace VenueLink.VLAgent.Unity
             {
                 _client.ConnectedAsync -= OnConnectedAsync;
                 _client.DisconnectedAsync -= OnDisconnectedAsync;
+                _client.ApplicationMessageReceivedAsync -= OnApplicationMessageReceivedAsync;
                 _client.Dispose();
             }
 
@@ -429,6 +556,50 @@ namespace VenueLink.VLAgent.Unity
         private void ThrowIfDisposed()
         {
             if (_disposed) throw new ObjectDisposedException(nameof(VLAgentClient));
+        }
+
+        /// <summary>从紧凑 JSON 中读取字符串字段（不依赖 UnityEngine / System.Text.Json）。</summary>
+        private static string? TryReadJsonStringProperty(string json, string propertyName)
+        {
+            var key = "\"" + propertyName + "\"";
+            var keyIndex = json.IndexOf(key, StringComparison.Ordinal);
+            if (keyIndex < 0) return null;
+
+            var colon = json.IndexOf(':', keyIndex + key.Length);
+            if (colon < 0) return null;
+
+            var i = colon + 1;
+            while (i < json.Length && char.IsWhiteSpace(json[i])) i++;
+            if (i >= json.Length || json[i] != '"') return null;
+            i++;
+
+            var sb = new StringBuilder();
+            while (i < json.Length)
+            {
+                var ch = json[i++];
+                if (ch == '\\')
+                {
+                    if (i >= json.Length) break;
+                    var esc = json[i++];
+                    sb.Append(esc switch
+                    {
+                        '"' => '"',
+                        '\\' => '\\',
+                        '/' => '/',
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        _ => esc
+                    });
+                    continue;
+                }
+
+                if (ch == '"')
+                    return sb.ToString();
+                sb.Append(ch);
+            }
+
+            return null;
         }
 
         public void Dispose()

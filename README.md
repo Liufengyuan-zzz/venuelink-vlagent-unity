@@ -26,11 +26,11 @@ packages/VLAgent.Unity/package.json
 
 导入本 SDK 后，Unity 会自动创建 `Assets/StreamingAssets/`（没有就建）和 `vlagent.json`。**已有文件不会覆盖。** 也可菜单：`VenueLink → VLAgent → 补全 vlagent.json`。
 
-SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听、回执）也必须读同一份文件**，不要在 Inspector 或代码里另写一套 IP/端口。创建后请立刻改 `deviceId`、`brokerHost`、`advertisePort`。
+SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听、回执）也必须读同一份文件**，不要在 Inspector 或代码里另写一套 IP/端口。创建后请立刻改 `brokerHost`、`advertisePort`。
 
 ```json
 {
-  "deviceId": "exhibit-unity-01",
+  "deviceId": "",
   "brokerHost": "192.168.1.10",
   "brokerPort": 1883,
   "heartbeatIntervalMs": 3000,
@@ -41,7 +41,8 @@ SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听�
 
 | 字段 | 谁填 | 含义 |
 |---|---|---|
-| `deviceId` | 人工 | 这台展项的唯一编号。MQTT 身份是 `agent-{deviceId}`（username 与 clientId 相同），馆内不可重复。无需密码。 |
+| `deviceId` | 中控签发 | 未入库可留空（SDK 生成临时 sessionId）。确认后写入正式 id。身份：待确认 `agent-pending-{sessionId}`，已入库 `agent-{deviceId}`。 |
+| `mqttPassword` | 确认入库后 | 中控签发；未入库留空。确认后与 `deviceId` 一并写回。 |
 | `brokerHost` / `brokerPort` | 人工 | **中控 VLServer 的地址**，不是展项自己的地址。本机联调用 `127.0.0.1`；现场填中控局域网 IP（如 `192.168.1.10`），端口默认 `1883`。 |
 | `advertisePort` | 人工 | **展项程序真正监听、收中控指令的 TCP 端口**。SDK **不会**帮你开这个端口。展项通信代码必须读这个字段再 `Listen`。 |
 | `heartbeatIntervalMs` / `reconnectDelayMs` | 一般不用改 | 心跳间隔、断线重连等待。 |

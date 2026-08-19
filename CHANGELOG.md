@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.3 - 2026-08-19
+
+- 未入库空密走 `agent-pending-{sessionId}` 与 `exhibit/pending/{sessionId}/…`；确认后写回正式 `deviceId` 与口令并重连。
+- 默认 `vlagent.json` 的 `deviceId` 留空，由中控签发。
+
+## 0.3.2 - 2026-08-18
+
+- 可选 `mqttPassword`；未入库可空密 register，确认后经 `exhibit/{id}/cred` 自动写入配置并重连。
+- `VLAgentClient` / `VLAgentBehaviour`：确认后经 `cred` 自动写入配置并重连。
+- `clientId` / `username` 仍为 `agent-{deviceId}`。
+
 ## 0.3.1 - 2026-08-13
 
 - 导入 SDK 或打开工程时，若缺少 `Assets/StreamingAssets/vlagent.json` 则自动创建（已有文件不覆盖）。

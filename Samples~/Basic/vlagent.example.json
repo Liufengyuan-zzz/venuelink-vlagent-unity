@@ -1,8 +1,9 @@
 {
-  "deviceId": "exhibit-001",
+  "deviceId": "",
   "brokerHost": "127.0.0.1",
   "brokerPort": 1883,
   "heartbeatIntervalMs": 3000,
   "reconnectDelayMs": 2000,
-  "advertisePort": 9000
+  "advertisePort": 9000,
+  "mqttPassword": ""
 }

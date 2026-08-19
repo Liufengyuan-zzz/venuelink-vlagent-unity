@@ -14,16 +14,6 @@ namespace VenueLink.VLAgent.Unity.Editor
         private const string FileName = "vlagent.json";
         private const string StreamingAssetsFolder = "Assets/StreamingAssets";
 
-        private const string DefaultJson =
-            "{\n" +
-            "  \"deviceId\": \"exhibit-unity-01\",\n" +
-            "  \"brokerHost\": \"127.0.0.1\",\n" +
-            "  \"brokerPort\": 1883,\n" +
-            "  \"heartbeatIntervalMs\": 3000,\n" +
-            "  \"reconnectDelayMs\": 2000,\n" +
-            "  \"advertisePort\": 9000\n" +
-            "}\n";
-
         static VlagentJsonBootstrap()
         {
             EditorApplication.delayCall += EnsureConfigFile;
@@ -52,10 +42,24 @@ namespace VenueLink.VLAgent.Unity.Editor
                 AssetDatabase.CreateFolder("Assets", "StreamingAssets");
 
             Directory.CreateDirectory(Application.streamingAssetsPath);
-            File.WriteAllText(path, DefaultJson);
+            File.WriteAllText(path, BuildDefaultJson());
             AssetDatabase.Refresh();
             Debug.Log("[VLAgent] 已创建 " + StreamingAssetsFolder + "/" + FileName +
-                      "。请改 deviceId、brokerHost（中控 IP）、advertisePort（展项监听端口）。已有文件不会被覆盖。");
+                      "。请改 brokerHost（中控 IP）、advertisePort（展项监听端口）。已有文件不会被覆盖。");
+        }
+
+        private static string BuildDefaultJson()
+        {
+            return
+                "{\n" +
+                "  \"deviceId\": \"\",\n" +
+                "  \"brokerHost\": \"127.0.0.1\",\n" +
+                "  \"brokerPort\": 1883,\n" +
+                "  \"heartbeatIntervalMs\": 3000,\n" +
+                "  \"reconnectDelayMs\": 2000,\n" +
+                "  \"advertisePort\": 9000,\n" +
+                "  \"mqttPassword\": \"\"\n" +
+                "}\n";
         }
     }
 }

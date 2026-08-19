@@ -12,15 +12,22 @@ namespace VenueLink.VLAgent.Unity
         public int reconnectDelayMs = 2000;
 
         /// <summary>
+        /// 已确认入库设备的 MQTT 密码；未入库首次 register 可留空。
+        /// </summary>
+        public string mqttPassword = string.Empty;
+
+        /// <summary>
         /// 展项自身 TCP 监听端口（FixedTcp 候选）。SDK 不监听该端口。
         /// </summary>
         public int advertisePort;
 
         public void Validate()
         {
-            if (string.IsNullOrWhiteSpace(deviceId))
-                throw new ArgumentException("deviceId 不能为空。", nameof(deviceId));
-            if (deviceId.IndexOf('/') >= 0 || deviceId.IndexOf('+') >= 0 || deviceId.IndexOf('#') >= 0)
+            var pending = string.IsNullOrEmpty(mqttPassword);
+            if (!pending && string.IsNullOrWhiteSpace(deviceId))
+                throw new ArgumentException("已入库配置的 deviceId 不能为空。", nameof(deviceId));
+            if (!string.IsNullOrWhiteSpace(deviceId)
+                && (deviceId.IndexOf('/') >= 0 || deviceId.IndexOf('+') >= 0 || deviceId.IndexOf('#') >= 0))
                 throw new ArgumentException("deviceId 不能包含 MQTT Topic 分隔符或通配符。", nameof(deviceId));
             if (string.IsNullOrWhiteSpace(brokerHost))
                 throw new ArgumentException("brokerHost 不能为空。", nameof(brokerHost));
