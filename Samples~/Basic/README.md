@@ -6,7 +6,7 @@
    - `deviceId`：每个展项唯一，例如 `exhibit-hall-a-01`（MQTT username/clientId 自动为 `agent-{deviceId}`，无需密码）
    - `brokerHost`：VLServer 局域网地址（现场勿用 `127.0.0.1`）
    - `advertisePort`：展项自身 TCP 监听端口（SDK 不监听）
-4. 在空场景中新建 GameObject，挂载 `VLAgentBootstrap`。
+4. 在空场景中新建独立 GameObject，挂载 `VLAgentBootstrap`（内部的 `VLAgentBehaviour` 默认切场景不销毁）。
 5. （可选）同物体再挂 `FakeTelemetryDemo`，演示 `ReportState` 假进度/音量。
 6. 同物体挂 `FixedTcpCommandServer`：按 `advertisePort` 监听，接收中控 FixedTcp 指令（Console 会打印原文）。
 7. 启动 VLServer 后进入 Play Mode。

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4 - 2026-08-24
+
+- `VLAgentBehaviour` 默认 `DontDestroyOnLoad`；切场景不销毁、不发正常下线。后续场景若再挂一份则销毁重复物体。Inspector 可关 `persistAcrossScenes`。
+- 改为经公开仓库 `venuelink-vlagent-unity` 以 git URL 安装，不再要求 Add package from disk。
+- 集成指南移入包内 `Documentation~/`，随包分发。
+
 ## 0.3.3 - 2026-08-19
 
 - 未入库空密走 `agent-pending-{sessionId}` 与 `exhibit/pending/{sessionId}/…`；确认后写回正式 `deviceId` 与口令并重连。

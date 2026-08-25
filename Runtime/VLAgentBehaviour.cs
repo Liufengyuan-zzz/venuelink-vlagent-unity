@@ -11,8 +11,15 @@ namespace VenueLink.VLAgent.Unity
         [SerializeField]
         private string configFileName = AgentConfigLoader.DefaultFileName;
 
+        [SerializeField]
+        [Tooltip("切场景时保留本物体，避免 OnDestroy 正常下线导致中控闪离线。请挂在独立空物体上。")]
+        private bool persistAcrossScenes = true;
+
+        private static VLAgentBehaviour _instance;
+
         private VLAgentClient _client;
         private bool _stopped;
+        private bool _duplicate;
 
         public bool IsConnected
         {
@@ -22,6 +29,21 @@ namespace VenueLink.VLAgent.Unity
         public VLAgentClient Client
         {
             get { return _client; }
+        }
+
+        private void Awake()
+        {
+            if (!persistAcrossScenes) return;
+
+            if (_instance != null && _instance != this)
+            {
+                _duplicate = true;
+                Destroy(gameObject);
+                return;
+            }
+
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
         }
 
         /// <summary>上报业务运行态（进度/音量等）。未启动时忽略。</summary>
@@ -40,6 +62,8 @@ namespace VenueLink.VLAgent.Unity
 
         private async void Start()
         {
+            if (_duplicate) return;
+
             try
             {
                 var path = AgentConfigLoader.GetStreamingAssetsPath(configFileName);
@@ -63,6 +87,9 @@ namespace VenueLink.VLAgent.Unity
 
         private void OnDestroy()
         {
+            if (_duplicate) return;
+            if (_instance == this)
+                _instance = null;
             StopBlocking();
         }
 

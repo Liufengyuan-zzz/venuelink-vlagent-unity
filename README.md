@@ -1,8 +1,8 @@
 # VenueLink VLAgent Unity SDK
 
-适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看仓库里的 [`VLAgent SDK集成指南`](../../docs/ProjectDocs/VLAgent%20SDK集成指南.md)。
+适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
 
-当前 `0.3.1` 提供：
+当前 `0.3.4` 提供：
 
 - MQTT TCP 连接与自动重连
 - 连接后发布 `register`（IP / MAC / 端口 / hostname）
@@ -16,11 +16,25 @@
 
 ## 引用
 
-Unity Package Manager → Add package from disk，选择：
+Unity Package Manager → 左上 `+` → Add package from git URL，填：
 
 ```text
-packages/VLAgent.Unity/package.json
+https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.4
 ```
+
+`#` 后面是版本 tag，不写则取最新 `main`。现场交付建议锁定 tag，避免升级带来意外。
+
+也可直接写进工程的 `Packages/manifest.json`，团队成员打开工程即自动拉取：
+
+```json
+{
+  "dependencies": {
+    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.4"
+  }
+}
+```
+
+升级换 tag 即可。要改 SDK 源码时才用 Add package from disk 选 `packages/VLAgent.Unity/package.json`。
 
 ## 配置
 
@@ -68,7 +82,7 @@ SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听�
 
 ## 使用
 
-挂载 `VLAgentBehaviour`，或：
+挂载 `VLAgentBehaviour`（请用独立空物体）。默认切场景不销毁；重复挂载会丢掉后进场景的那份。不要和会随场景卸载的业务物体绑在一起。也可：
 
 ```csharp
 var config = AgentConfigLoader.LoadFromStreamingAssets();
