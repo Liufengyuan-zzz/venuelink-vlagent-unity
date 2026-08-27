@@ -2,7 +2,7 @@
 
 适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
 
-当前 `0.3.4` 提供：
+当前 `0.3.5` 提供：
 
 - MQTT TCP 连接与自动重连
 - 连接后发布 `register`（IP / MAC / 端口 / hostname）
@@ -19,7 +19,7 @@
 Unity Package Manager → 左上 `+` → Add package from git URL，填：
 
 ```text
-https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.4
+https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.5
 ```
 
 `#` 后面是版本 tag，不写则取最新 `main`。现场交付建议锁定 tag，避免升级带来意外。
@@ -29,7 +29,7 @@ https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.4
 ```json
 {
   "dependencies": {
-    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.4"
+    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.5"
   }
 }
 ```

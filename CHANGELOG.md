@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.5 - 2026-08-27
+
+- 解析中控 `cred` JSON 时解码 `\uXXXX`。Base64 口令里的 `+` 被写成 `\u002B` 时不再写坏 `vlagent.json`，二次打开可正常重连。
+
 ## 0.3.4 - 2026-08-24
 
 - `VLAgentBehaviour` 默认 `DontDestroyOnLoad`；切场景不销毁、不发正常下线。后续场景若再挂一份则销毁重复物体。Inspector 可关 `persistAcrossScenes`。

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -558,7 +559,10 @@ namespace VenueLink.VLAgent.Unity
             if (_disposed) throw new ObjectDisposedException(nameof(VLAgentClient));
         }
 
-        /// <summary>从紧凑 JSON 中读取字符串字段（不依赖 UnityEngine / System.Text.Json）。</summary>
+        /// <summary>
+        /// 从紧凑 JSON 中读取字符串字段（不依赖 UnityEngine / System.Text.Json）。
+        /// 中控用 System.Text.Json 默认编码器，Base64 口令里的 '+' 会写成 \u002B，故必须解 \uXXXX。
+        /// </summary>
         private static string? TryReadJsonStringProperty(string json, string propertyName)
         {
             var key = "\"" + propertyName + "\"";
@@ -581,11 +585,28 @@ namespace VenueLink.VLAgent.Unity
                 {
                     if (i >= json.Length) break;
                     var esc = json[i++];
+                    if (esc == 'u')
+                    {
+                        if (i + 4 > json.Length) break;
+                        if (!int.TryParse(
+                                json.Substring(i, 4),
+                                NumberStyles.HexNumber,
+                                CultureInfo.InvariantCulture,
+                                out var codePoint))
+                            break;
+
+                        i += 4;
+                        sb.Append((char)codePoint);
+                        continue;
+                    }
+
                     sb.Append(esc switch
                     {
                         '"' => '"',
                         '\\' => '\\',
                         '/' => '/',
+                        'b' => '\b',
+                        'f' => '\f',
                         'n' => '\n',
                         'r' => '\r',
                         't' => '\t',

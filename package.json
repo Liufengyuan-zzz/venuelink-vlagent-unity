@@ -1,6 +1,6 @@
 {
   "name": "com.venuelink.vlagent",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "displayName": "VenueLink VLAgent",
   "description": "VenueLink Unity exhibit connectivity SDK: MQTT register, status/ReportState, heartbeat and LWT.",
   "unity": "2022.3",
