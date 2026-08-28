@@ -128,7 +128,7 @@ app.on("before-quit", async (e) => {
 也可以自己写：
 
 ```csharp
-var config = AgentConfigLoader.LoadFromStreamingAssets();
+var config = AgentConfigLoader.Load();
 var agent = new VLAgentClient(config);
 await agent.StartAsync();
 ```

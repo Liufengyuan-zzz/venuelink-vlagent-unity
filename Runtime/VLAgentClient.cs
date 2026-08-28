@@ -198,7 +198,7 @@ namespace VenueLink.VLAgent.Unity
                 .WithWillTopic(statusTopic)
                 .WithWillPayload(Encoding.UTF8.GetBytes(lwtPayload))
                 .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                .WithWillRetain(true)
+                .WithWillRetain(false)
                 .Build();
         }
 
@@ -351,11 +351,12 @@ namespace VenueLink.VLAgent.Unity
 
         private async Task HeartbeatLoopAsync(CancellationToken cancellationToken)
         {
-            try
+            while (!cancellationToken.IsCancellationRequested)
             {
-                while (!cancellationToken.IsCancellationRequested)
+                try
                 {
                     await Task.Delay(_config.heartbeatIntervalMs, cancellationToken).ConfigureAwait(false);
+                    if (_applyingCredential != 0) continue;
                     if (_client != null && _client.IsConnected)
                     {
                         await PublishStatusAsync(
@@ -365,13 +366,14 @@ namespace VenueLink.VLAgent.Unity
                             cancellationToken: cancellationToken).ConfigureAwait(false);
                     }
                 }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-            }
-            catch (Exception ex)
-            {
-                BackgroundError?.Invoke(ex);
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    BackgroundError?.Invoke(ex);
+                }
             }
         }
 

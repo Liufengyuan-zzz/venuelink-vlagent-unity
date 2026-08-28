@@ -40,7 +40,7 @@ https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.5
 
 导入本 SDK 后，Unity 会自动创建 `Assets/StreamingAssets/`（没有就建）和 `vlagent.json`。**已有文件不会覆盖。** 也可菜单：`VenueLink → VLAgent → 补全 vlagent.json`。
 
-SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听、回执）也必须读同一份文件**，不要在 Inspector 或代码里另写一套 IP/端口。创建后请立刻改 `brokerHost`、`advertisePort`。
+SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` 写到 `persistentDataPath`，不改 StreamingAssets。下次启动用模板的连接参数，再叠加上一份身份。**展项自己的通信代码（TCP/HTTP 监听、回执）也必须读同一份文件**，不要在 Inspector 或代码里另写一套 IP/端口。创建后请立刻改 `brokerHost`、`advertisePort`。
 
 ```json
 {
@@ -59,13 +59,14 @@ SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听�
 | `mqttPassword` | 确认入库后 | 中控签发；未入库留空。确认后与 `deviceId` 一并写回。 |
 | `brokerHost` / `brokerPort` | 人工 | **中控 VLServer 的地址**，不是展项自己的地址。本机联调用 `127.0.0.1`；现场填中控局域网 IP（如 `192.168.1.10`），端口默认 `1883`。 |
 | `advertisePort` | 人工 | **展项程序真正监听、收中控指令的 TCP 端口**。SDK **不会**帮你开这个端口。展项通信代码必须读这个字段再 `Listen`。 |
-| `heartbeatIntervalMs` / `reconnectDelayMs` | 一般不用改 | 心跳间隔、断线重连等待。 |
+| `heartbeatIntervalMs` | 一般不用改 | 心跳间隔，允许 `[500, 10000]` ms，默认 3000。超限钳制到边界并打警告，不抛异常。 |
+| `reconnectDelayMs` | 一般不用改 | 断线重连等待，允许 `[500, 10000]` ms，默认 2000。超限钳制到边界并打警告，不抛异常。 |
 
 **IP / MAC 不用写进 JSON。** SDK 启动时会自动探测：选一张「能访问到 `brokerHost`」的本机网卡，把该网卡的 IPv4 和 MAC 上报给中控。
 
 ### 开发时怎么用这份配置
 
-1. SDK：`AgentConfigLoader.LoadFromStreamingAssets()`（或挂 `VLAgentBehaviour`）。
+1. SDK：`AgentConfigLoader.Load()`（或挂 `VLAgentBehaviour`）。只读模板时仍可用 `LoadFromStreamingAssets()`。
 2. 展项通信：同样读 `vlagent.json` 的 `advertisePort` 再监听。可参考 Sample 的 `FixedTcpCommandServer`。
 3. 中控设备档案若是 FixedTcp：目标就是「确认时的 IP + `advertisePort`」。两边不一致，指令发不到展项。
 
@@ -85,7 +86,7 @@ SDK 读这份文件连中控；**展项自己的通信代码（TCP/HTTP 监听�
 挂载 `VLAgentBehaviour`（请用独立空物体）。默认切场景不销毁；重复挂载会丢掉后进场景的那份。不要和会随场景卸载的业务物体绑在一起。也可：
 
 ```csharp
-var config = AgentConfigLoader.LoadFromStreamingAssets();
+var config = AgentConfigLoader.Load();
 var agent = new VLAgentClient(config);
 await agent.StartAsync();
 

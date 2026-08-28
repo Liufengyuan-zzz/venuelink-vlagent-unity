@@ -66,10 +66,10 @@ namespace VenueLink.VLAgent.Unity
 
             try
             {
-                var path = AgentConfigLoader.GetStreamingAssetsPath(configFileName);
-                var config = AgentConfigLoader.LoadFromStreamingAssets(configFileName);
+                var config = AgentConfigLoader.Load(configFileName);
+                var persistPath = AgentConfigLoader.GetPersistentDataPath(configFileName);
                 _client = new VLAgentClient(config, (deviceId, password) =>
-                    AgentConfigLoader.SaveAssignedIdentity(path, deviceId, password));
+                    AgentConfigLoader.SaveAssignedIdentity(persistPath, deviceId, password));
                 _client.ConnectionChanged += OnConnectionChanged;
                 _client.BackgroundError += OnBackgroundError;
                 await _client.StartAsync();

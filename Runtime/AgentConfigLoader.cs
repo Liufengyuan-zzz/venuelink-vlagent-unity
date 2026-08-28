@@ -15,9 +15,35 @@ namespace VenueLink.VLAgent.Unity
             return Path.Combine(Application.streamingAssetsPath, fileName);
         }
 
+        public static string GetPersistentDataPath(string fileName = DefaultFileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("配置文件名不能为空。", nameof(fileName));
+            return Path.Combine(Application.persistentDataPath, fileName);
+        }
+
+        /// <summary>
+        /// 读 StreamingAssets 模板，再用 persistentDataPath 里的签发身份覆盖 deviceId / mqttPassword。
+        /// </summary>
+        public static AgentConfig Load(string fileName = DefaultFileName)
+        {
+            var config = ParseFile(GetStreamingAssetsPath(fileName));
+            var persistentPath = GetPersistentDataPath(fileName);
+            if (File.Exists(persistentPath))
+                config.OverlayPersistedIdentity(ParseFile(persistentPath));
+            config.Validate();
+            return config;
+        }
+
         public static AgentConfig LoadFromStreamingAssets(string fileName = DefaultFileName)
         {
-            var path = GetStreamingAssetsPath(fileName);
+            var config = ParseFile(GetStreamingAssetsPath(fileName));
+            config.Validate();
+            return config;
+        }
+
+        private static AgentConfig ParseFile(string path)
+        {
             if (!File.Exists(path))
                 throw new FileNotFoundException("找不到 VLAgent 配置文件：" + path, path);
 
@@ -26,8 +52,6 @@ namespace VenueLink.VLAgent.Unity
             var config = JsonUtility.FromJson<AgentConfig>(json);
             if (config == null)
                 throw new InvalidDataException("VLAgent 配置文件不是有效 JSON：" + path);
-
-            config.Validate();
             return config;
         }
 
