@@ -38,7 +38,7 @@ SDK 的名字叫 **VLAgent**。嵌进去之后：
 
 | 你的程序            | 用这个                                                              | 版本    |
 | --------------- | ---------------------------------------------------------------- | ----- |
-| Unity 2022.3    | git URL：`github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git` | 0.3.5 |
+| Unity 2022.3    | git URL：`github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git` | 0.3.6 |
 | Electron 或 Node | npm：`@venuelink/vlagent`                                         | 0.1.2 |
 
 
@@ -119,7 +119,7 @@ app.on("before-quit", async (e) => {
 ### Unity（2022.3 LTS）
 
 1. Package Manager → 左上 `+` → **Add package from git URL** → 填
-   `https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.5`
+   `https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.6`
    （`#` 后是版本 tag，现场交付建议锁定；不写则取最新）
 2. 导入后会自动生成 `Assets/StreamingAssets/vlagent.json`（已有文件不覆盖）
 3. 改这个 JSON 里的 `deviceId`、`brokerHost`、`advertisePort`
