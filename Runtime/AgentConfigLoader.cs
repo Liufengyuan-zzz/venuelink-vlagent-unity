@@ -1,6 +1,10 @@
 using System;
 using System.IO;
+#if UNITY_5_3_OR_NEWER
 using UnityEngine;
+#else
+using System.Text.Json;
+#endif
 
 namespace VenueLink.VLAgent.Unity
 {
@@ -12,14 +16,22 @@ namespace VenueLink.VLAgent.Unity
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new ArgumentException("配置文件名不能为空。", nameof(fileName));
+#if UNITY_5_3_OR_NEWER
             return Path.Combine(Application.streamingAssetsPath, fileName);
+#else
+            throw new PlatformNotSupportedException("StreamingAssets 路径只在 Unity 运行时可用。");
+#endif
         }
 
         public static string GetPersistentDataPath(string fileName = DefaultFileName)
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new ArgumentException("配置文件名不能为空。", nameof(fileName));
+#if UNITY_5_3_OR_NEWER
             return Path.Combine(Application.persistentDataPath, fileName);
+#else
+            throw new PlatformNotSupportedException("persistentDataPath 只在 Unity 运行时可用。");
+#endif
         }
 
         /// <summary>
@@ -27,8 +39,12 @@ namespace VenueLink.VLAgent.Unity
         /// </summary>
         public static AgentConfig Load(string fileName = DefaultFileName)
         {
-            var config = ParseFile(GetStreamingAssetsPath(fileName));
-            var persistentPath = GetPersistentDataPath(fileName);
+            return LoadFromFiles(GetStreamingAssetsPath(fileName), GetPersistentDataPath(fileName));
+        }
+
+        internal static AgentConfig LoadFromFiles(string templatePath, string persistentPath)
+        {
+            var config = ParseFile(templatePath);
             if (File.Exists(persistentPath))
                 config.OverlayPersistedIdentity(ParseFile(persistentPath));
             config.Validate();
@@ -37,7 +53,12 @@ namespace VenueLink.VLAgent.Unity
 
         public static AgentConfig LoadFromStreamingAssets(string fileName = DefaultFileName)
         {
-            var config = ParseFile(GetStreamingAssetsPath(fileName));
+            return LoadFromFile(GetStreamingAssetsPath(fileName));
+        }
+
+        internal static AgentConfig LoadFromFile(string absolutePath)
+        {
+            var config = ParseFile(absolutePath);
             config.Validate();
             return config;
         }
@@ -49,9 +70,10 @@ namespace VenueLink.VLAgent.Unity
 
             var json = File.ReadAllText(path);
             EnsureNumericFields(json);
-            var config = JsonUtility.FromJson<AgentConfig>(json);
+            var config = Deserialize(json);
             if (config == null)
                 throw new InvalidDataException("VLAgent 配置文件不是有效 JSON：" + path);
+            config.identityAssignedSpecified = HasTopLevelJsonProperty(json, "identityAssigned");
             return config;
         }
 
@@ -66,7 +88,7 @@ namespace VenueLink.VLAgent.Unity
             AgentConfig config;
             if (File.Exists(absolutePath))
             {
-                config = JsonUtility.FromJson<AgentConfig>(File.ReadAllText(absolutePath))
+                config = Deserialize(File.ReadAllText(absolutePath))
                          ?? new AgentConfig();
             }
             else
@@ -76,10 +98,9 @@ namespace VenueLink.VLAgent.Unity
 
             config.deviceId = deviceId ?? string.Empty;
             config.mqttPassword = mqttPassword ?? string.Empty;
-            var dir = Path.GetDirectoryName(absolutePath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-            File.WriteAllText(absolutePath, JsonUtility.ToJson(config, true));
+            config.identityAssigned = !string.IsNullOrEmpty(config.mqttPassword);
+            config.identityAssignedSpecified = true;
+            WriteAtomically(absolutePath, Serialize(config));
         }
 
         /// <summary>仅写回 mqttPassword，保留文件中的 deviceId。</summary>
@@ -91,11 +112,117 @@ namespace VenueLink.VLAgent.Unity
             var deviceId = string.Empty;
             if (File.Exists(absolutePath))
             {
-                var existing = JsonUtility.FromJson<AgentConfig>(File.ReadAllText(absolutePath));
+                var existing = Deserialize(File.ReadAllText(absolutePath));
                 if (existing != null) deviceId = existing.deviceId;
             }
 
             SaveAssignedIdentity(absolutePath, deviceId, mqttPassword);
+        }
+
+#if UNITY_5_3_OR_NEWER
+        private static AgentConfig Deserialize(string json)
+#else
+        private static AgentConfig? Deserialize(string json)
+#endif
+        {
+#if UNITY_5_3_OR_NEWER
+            return JsonUtility.FromJson<AgentConfig>(json);
+#else
+            return JsonSerializer.Deserialize<AgentConfig>(json, JsonOptions);
+#endif
+        }
+
+        private static string Serialize(AgentConfig config)
+        {
+#if UNITY_5_3_OR_NEWER
+            return JsonUtility.ToJson(config, true);
+#else
+            return JsonSerializer.Serialize(config, JsonOptions);
+#endif
+        }
+
+#if !UNITY_5_3_OR_NEWER
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            IncludeFields = true,
+            WriteIndented = true
+        };
+#endif
+
+        private static void WriteAtomically(string absolutePath, string contents)
+        {
+            var fullPath = Path.GetFullPath(absolutePath);
+            var directory = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrEmpty(directory))
+                throw new InvalidDataException("配置路径缺少父目录：" + absolutePath);
+            if (!Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+
+            var tempPath = Path.Combine(
+                directory,
+                "." + Path.GetFileName(fullPath) + "." + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                File.WriteAllText(tempPath, contents);
+                File.Move(tempPath, fullPath, true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        private static bool HasTopLevelJsonProperty(string json, string key)
+        {
+            var depth = 0;
+            var inString = false;
+            var escaped = false;
+            var stringStart = -1;
+            for (var i = 0; i < json.Length; i++)
+            {
+                var current = json[i];
+                if (inString)
+                {
+                    if (escaped)
+                    {
+                        escaped = false;
+                        continue;
+                    }
+                    if (current == '\\')
+                    {
+                        escaped = true;
+                        continue;
+                    }
+                    if (current != '"') continue;
+
+                    inString = false;
+                    if (depth != 1 || i - stringStart - 1 != key.Length
+                        || string.CompareOrdinal(json, stringStart + 1, key, 0, key.Length) != 0)
+                        continue;
+
+                    var next = i + 1;
+                    while (next < json.Length && char.IsWhiteSpace(json[next])) next++;
+                    if (next < json.Length && json[next] == ':') return true;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    inString = true;
+                    stringStart = i;
+                }
+                else if (current == '{')
+                {
+                    depth++;
+                }
+                else if (current == '}')
+                {
+                    depth--;
+                }
+            }
+
+            return false;
         }
 
         private static void EnsureNumericFields(string json)

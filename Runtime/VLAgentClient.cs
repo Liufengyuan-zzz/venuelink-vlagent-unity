@@ -12,8 +12,14 @@ namespace VenueLink.VLAgent.Unity
 {
     public sealed class VLAgentClient : IDisposable
     {
+        private static readonly object ReconnectRandomGate = new object();
+        private static readonly Random ReconnectRandom = new Random();
+
         private readonly AgentConfig _config;
         private readonly Action<string, string>? _persistAssignedIdentity;
+        private readonly int _effectiveReconnectDelayMs;
+        private readonly Func<int, CancellationToken, Task> _heartbeatDelayAsync;
+        private readonly Func<CancellationToken, Task>? _heartbeatPublishAsync;
         private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
         private readonly object _reconnectGate = new object();
         private readonly object _stateGate = new object();
@@ -31,10 +37,41 @@ namespace VenueLink.VLAgent.Unity
 
         /// <param name="persistAssignedIdentity">可选。写回配置（deviceId, mqttPassword）。</param>
         public VLAgentClient(AgentConfig config, Action<string, string>? persistAssignedIdentity = null)
+            : this(
+                config,
+                persistAssignedIdentity,
+                NextReconnectJitterSample,
+                null,
+                null)
+        {
+        }
+
+        internal VLAgentClient(
+            AgentConfig config,
+            Action<string, string>? persistAssignedIdentity,
+            Func<double> reconnectJitterSample)
+            : this(config, persistAssignedIdentity, reconnectJitterSample, null, null)
+        {
+        }
+
+        internal VLAgentClient(
+            AgentConfig config,
+            Action<string, string>? persistAssignedIdentity,
+            Func<double> reconnectJitterSample,
+            Func<int, CancellationToken, Task>? heartbeatDelayAsync,
+            Func<CancellationToken, Task>? heartbeatPublishAsync)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _persistAssignedIdentity = persistAssignedIdentity;
+            if (reconnectJitterSample == null) throw new ArgumentNullException(nameof(reconnectJitterSample));
+            _effectiveReconnectDelayMs = AgentConfig.CalculateReconnectDelayMs(
+                _config.reconnectDelayMs,
+                reconnectJitterSample());
+            _heartbeatDelayAsync = heartbeatDelayAsync ?? Task.Delay;
+            _heartbeatPublishAsync = heartbeatPublishAsync;
         }
+
+        internal int EffectiveReconnectDelayMs => _effectiveReconnectDelayMs;
 
         public bool IsConnected
         {
@@ -267,12 +304,14 @@ namespace VenueLink.VLAgent.Unity
 
             try
             {
-                if (string.Equals(_config.mqttPassword, mqttPassword, StringComparison.Ordinal)
+                if (_config.identityAssigned
+                    && string.Equals(_config.mqttPassword, mqttPassword, StringComparison.Ordinal)
                     && string.Equals(_config.deviceId, deviceId, StringComparison.Ordinal))
                     return;
 
                 _config.deviceId = deviceId;
                 _config.mqttPassword = mqttPassword;
+                _config.identityAssigned = true;
                 if (_persistAssignedIdentity != null)
                 {
                     try
@@ -330,7 +369,7 @@ namespace VenueLink.VLAgent.Unity
             {
                 try
                 {
-                    await Task.Delay(_config.reconnectDelayMs, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(_effectiveReconnectDelayMs, cancellationToken).ConfigureAwait(false);
                     if (_client != null && !_client.IsConnected)
                     {
                         _hostSnapshot = HostInfo.Capture(_config.brokerHost, _config.brokerPort);
@@ -349,15 +388,21 @@ namespace VenueLink.VLAgent.Unity
             }
         }
 
-        private async Task HeartbeatLoopAsync(CancellationToken cancellationToken)
+        internal async Task HeartbeatLoopAsync(CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    await Task.Delay(_config.heartbeatIntervalMs, cancellationToken).ConfigureAwait(false);
+                    await _heartbeatDelayAsync(
+                        _config.heartbeatIntervalMs,
+                        cancellationToken).ConfigureAwait(false);
                     if (_applyingCredential != 0) continue;
-                    if (_client != null && _client.IsConnected)
+                    if (_heartbeatPublishAsync != null)
+                    {
+                        await _heartbeatPublishAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    else if (_client != null && _client.IsConnected)
                     {
                         await PublishStatusAsync(
                             online: true,
@@ -469,7 +514,15 @@ namespace VenueLink.VLAgent.Unity
 
         private bool IsPendingSession()
         {
-            return string.IsNullOrEmpty(_config.mqttPassword);
+            return !_config.identityAssigned;
+        }
+
+        private static double NextReconnectJitterSample()
+        {
+            lock (ReconnectRandomGate)
+            {
+                return ReconnectRandom.NextDouble();
+            }
         }
 
         private void EnsureSessionId()
@@ -478,6 +531,7 @@ namespace VenueLink.VLAgent.Unity
                 return;
 
             _config.deviceId = Guid.NewGuid().ToString("N");
+            _config.identityAssigned = false;
             if (_persistAssignedIdentity == null) return;
             try
             {

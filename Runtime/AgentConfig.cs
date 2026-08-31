@@ -11,6 +11,12 @@ namespace VenueLink.VLAgent.Unity
         public int heartbeatIntervalMs = 3000;
         public int reconnectDelayMs = 2000;
 
+        /// <summary>中控是否已为本 SDK 分配正式设备身份。</summary>
+        public bool identityAssigned;
+
+        [NonSerialized]
+        internal bool identityAssignedSpecified;
+
         /// <summary>
         /// 已确认入库设备的 MQTT 密码；未入库首次 register 可留空。
         /// </summary>
@@ -21,6 +27,20 @@ namespace VenueLink.VLAgent.Unity
         public const int ReconnectDelayMinMs = HeartbeatIntervalMinMs;
         public const int ReconnectDelayMaxMs = HeartbeatIntervalMaxMs;
 
+        internal static int CalculateReconnectDelayMs(int baseDelayMs, double sample)
+        {
+            var clampedSample = double.IsNaN(sample) ? 0d : Math.Clamp(sample, 0d, 1d);
+            var factor = 0.8d + clampedSample * 0.4d;
+            var rounded = Math.Round(
+                baseDelayMs * factor,
+                MidpointRounding.AwayFromZero);
+            var clamped = Math.Clamp(
+                rounded,
+                (double)ReconnectDelayMinMs,
+                (double)ReconnectDelayMaxMs);
+            return (int)clamped;
+        }
+
         /// <summary>
         /// 展项自身 TCP 监听端口（FixedTcp 候选）。SDK 不监听该端口。
         /// </summary>
@@ -28,7 +48,10 @@ namespace VenueLink.VLAgent.Unity
 
         public void Validate()
         {
-            var pending = string.IsNullOrEmpty(mqttPassword);
+            // 只归一化历史版本；显式 false 必须优先于文件里遗留的旧密码。
+            if (!identityAssignedSpecified && !string.IsNullOrEmpty(mqttPassword))
+                identityAssigned = true;
+            var pending = !identityAssigned;
             if (!pending && string.IsNullOrWhiteSpace(deviceId))
                 throw new ArgumentException("已入库配置的 deviceId 不能为空。", nameof(deviceId));
             if (!string.IsNullOrWhiteSpace(deviceId)
@@ -54,6 +77,10 @@ namespace VenueLink.VLAgent.Unity
             if (persisted == null) throw new ArgumentNullException(nameof(persisted));
             deviceId = persisted.deviceId ?? string.Empty;
             mqttPassword = persisted.mqttPassword ?? string.Empty;
+            identityAssigned = persisted.identityAssignedSpecified
+                ? persisted.identityAssigned
+                : !string.IsNullOrEmpty(mqttPassword);
+            identityAssignedSpecified = true;
         }
 
         private static int ClampIntervalMs(string name, int value, int min, int max)

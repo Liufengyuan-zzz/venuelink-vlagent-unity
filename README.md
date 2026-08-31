@@ -45,17 +45,20 @@ SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` �
 ```json
 {
   "deviceId": "",
+  "identityAssigned": false,
   "brokerHost": "192.168.1.10",
   "brokerPort": 1883,
   "heartbeatIntervalMs": 3000,
   "reconnectDelayMs": 2000,
-  "advertisePort": 9000
+  "advertisePort": 9000,
+  "mqttPassword": ""
 }
 ```
 
 | 字段 | 谁填 | 含义 |
 |---|---|---|
 | `deviceId` | 中控签发 | 未入库可留空（SDK 生成临时 sessionId）。确认后写入正式 id。身份：待确认 `agent-pending-{sessionId}`，已入库 `agent-{deviceId}`。 |
+| `identityAssigned` | SDK 维护 | 身份状态的唯一判断依据。首次注册为 `false`；收到正式凭据后先改为 `true`，再与 `deviceId`、`mqttPassword` 通过同目录临时文件原子写回。旧配置缺少该字段且密码非空时归一化为 `true`；显式 `false` 优先于文件里遗留的旧密码。 |
 | `mqttPassword` | 确认入库后 | 中控签发；未入库留空。确认后与 `deviceId` 一并写回。 |
 | `brokerHost` / `brokerPort` | 人工 | **中控 VLServer 的地址**，不是展项自己的地址。本机联调用 `127.0.0.1`；现场填中控局域网 IP（如 `192.168.1.10`），端口默认 `1883`。 |
 | `advertisePort` | 人工 | **展项程序真正监听、收中控指令的 TCP 端口**。SDK **不会**帮你开这个端口。展项通信代码必须读这个字段再 `Listen`。 |
@@ -63,6 +66,8 @@ SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` �
 | `reconnectDelayMs` | 一般不用改 | 断线重连等待，允许 `[500, 10000]` ms，默认 2000。超限钳制到边界并打警告，不抛异常。 |
 
 **IP / MAC 不用写进 JSON。** SDK 启动时会自动探测：选一张「能访问到 `brokerHost`」的本机网卡，把该网卡的 IPv4 和 MAC 上报给中控。
+
+正式设备丢失本地密码时应保留 `deviceId` 和 `identityAssigned=true`。SDK 会继续使用 `agent-{deviceId}`；管理员在中控为该设备开启限时恢复窗口后，SDK 可用空密码接入并取回凭据。恢复窗口关闭或过期时，服务端拒绝空密码连接。
 
 ### 开发时怎么用这份配置
 
