@@ -39,7 +39,7 @@ SDK 的名字叫 **VLAgent**。嵌进去之后：
 | 你的程序            | 用这个                                                              | 版本    |
 | --------------- | ---------------------------------------------------------------- | ----- |
 | Unity 2022.3    | git URL：`github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git` | 0.3.6 |
-| Electron 或 Node | npm：`@venuelink/vlagent`                                         | 0.1.2 |
+| Electron 或 Node | npm：`@venuelink/vlagent`                                         | 0.1.3 |
 
 
 两份配置文件、字段、行为相同。下面先写公共步骤，再分语言。
@@ -183,6 +183,8 @@ Unity 可参考 Sample 里的 `FixedTcpCommandServer`：同样读 `vlagent.json`
 5. 默认接入方式是 FixedTcp。确认后这台设备会出现在设备列表、场景编排、按钮目标里
 
 没出现在待确认：看展项日志是否连上；检查 `brokerHost` 是不是中控 IP、防火墙是否挡住 1883。
+
+中控里删掉这台设备后再开展项：SDK 会丢掉旧密钥，重新出现在待确认列表。不必再去改 `vlagent.json`。Unity 需要 **0.3.7**，JS 需要 **0.1.3**。
 
 ---
 

@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MQTTnet;
+using MQTTnet.Adapter;
 using MQTTnet.Client;
 using MQTTnet.Protocol;
 
@@ -122,7 +123,12 @@ namespace VenueLink.VLAgent.Unity
                 }
                 catch (Exception ex)
                 {
-                    BackgroundError?.Invoke(ex);
+                    if (TryDemoteAssignedIdentityAfterAuthRejected(ex))
+                        BackgroundError?.Invoke(new InvalidOperationException(
+                            "中控已拒绝当前设备凭据（设备可能已从中控删除），已清除本地密钥并重新申请授权。",
+                            ex));
+                    else
+                        BackgroundError?.Invoke(ex);
                     EnsureReconnectLoop();
                 }
             }
@@ -346,6 +352,12 @@ namespace VenueLink.VLAgent.Unity
         private Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args)
         {
             ConnectionChanged?.Invoke(false);
+            if (TryDemoteAssignedIdentityAfterAuthRejected(args)
+                && !_stopping)
+            {
+                BackgroundError?.Invoke(new InvalidOperationException(
+                    "中控已拒绝当前设备凭据（设备可能已从中控删除），已清除本地密钥并重新申请授权。"));
+            }
             if (!_stopping && _started && _lifetimeCts != null && !_lifetimeCts.IsCancellationRequested)
                 EnsureReconnectLoop();
             return Task.CompletedTask;
@@ -383,7 +395,12 @@ namespace VenueLink.VLAgent.Unity
                 }
                 catch (Exception ex)
                 {
-                    BackgroundError?.Invoke(ex);
+                    if (TryDemoteAssignedIdentityAfterAuthRejected(ex))
+                        BackgroundError?.Invoke(new InvalidOperationException(
+                            "中控已拒绝当前设备凭据（设备可能已从中控删除），已清除本地密钥并重新申请授权。",
+                            ex));
+                    else
+                        BackgroundError?.Invoke(ex);
                 }
             }
         }
@@ -523,6 +540,58 @@ namespace VenueLink.VLAgent.Unity
             {
                 return ReconnectRandom.NextDouble();
             }
+        }
+
+        /// <summary>
+        /// 中控删设备或口令失效时，CONNACK 4/5。清掉本地密钥，回到待确认，才能再次出现在设备管理里。
+        /// </summary>
+        private bool TryDemoteAssignedIdentityAfterAuthRejected(MqttClientDisconnectedEventArgs args)
+        {
+            if (args.Reason == MqttClientDisconnectReason.NotAuthorized
+                || IsAuthRejectedResult(args.ConnectResult?.ResultCode))
+                return DemoteAssignedIdentityToPending();
+            return TryDemoteAssignedIdentityAfterAuthRejected(args.Exception);
+        }
+
+        private bool TryDemoteAssignedIdentityAfterAuthRejected(Exception? exception)
+        {
+            return IsAuthRejected(exception) && DemoteAssignedIdentityToPending();
+        }
+
+        private bool DemoteAssignedIdentityToPending()
+        {
+            if (IsPendingSession()) return false;
+
+            _config.identityAssigned = false;
+            _config.identityAssignedSpecified = true;
+            _config.mqttPassword = string.Empty;
+            _config.deviceId = string.Empty;
+            EnsureSessionId();
+            return true;
+        }
+
+        private static bool IsAuthRejected(Exception? exception)
+        {
+            for (var current = exception; current != null; current = current.InnerException)
+            {
+                if (current is MqttConnectingFailedException failed
+                    && IsAuthRejectedResult(failed.ResultCode))
+                    return true;
+
+                var message = current.Message ?? string.Empty;
+                if (message.Contains("BadUserNameOrPassword", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("NotAuthorized", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("not authorized", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsAuthRejectedResult(MqttClientConnectResultCode? code)
+        {
+            return code is MqttClientConnectResultCode.BadUserNameOrPassword
+                or MqttClientConnectResultCode.NotAuthorized;
         }
 
         private void EnsureSessionId()

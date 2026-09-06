@@ -71,6 +71,8 @@ SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` �
 
 正式设备丢失本地密码时应保留 `deviceId` 和 `identityAssigned=true`。SDK 会继续使用 `agent-{deviceId}`；管理员在中控为该设备开启限时恢复窗口后，SDK 可用空密码接入并取回凭据。恢复窗口关闭或过期时，服务端拒绝空密码连接。
 
+中控**删除**该设备后再打开展项：旧密钥会被拒绝。SDK 清掉本地签发身份，重新以待确认接入，设备管理里会再出现待确认项。不必再手工改 `vlagent.json` 里的密钥。
+
 ### 开发时怎么用这份配置
 
 1. SDK：`AgentConfigLoader.Load()`（或挂 `VLAgentBehaviour`）。只读模板时仍可用 `LoadFromStreamingAssets()`。
