@@ -170,7 +170,11 @@ Unity 可参考 Sample 里的 `FixedTcpCommandServer`：同样读 `vlagent.json`
 
 指令内容长什么样，问现场中控怎么配。常见是一行 JSON，例如 `{"action":"play","target":"japan"}`，也可能是普通文本。你按自己程序能懂的格式解析即可。
 
-若要用 HTTP 收指令，中控确认入库时把接入方式改成 FixedHttp，并填 Path。详见主仓的 `第三方设备接入说明.md`。
+若要用 HTTP 收指令，中控确认入库时把接入方式改成 FixedHttp，并填 Path。
+
+若你的程序**原本就只听 UDP**（常见于接手的老展项），把接入方式改成 **FixedUdp**：中控发一个 UTF-8 数据报到同一 IP + `advertisePort`，**不带换行**，也不读回包。可参考 Sample 里的 `FixedUdpCommandServer`。注意 UDP 无连接，中控显示成功只代表包发出去了，收没收到看你自己的日志。
+
+两种方式详见主仓的 `第三方设备接入说明.md`。
 
 ---
 

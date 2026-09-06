@@ -5,10 +5,13 @@
 3. 修改：
    - `deviceId`：每个展项唯一，例如 `exhibit-hall-a-01`（MQTT username/clientId 自动为 `agent-{deviceId}`，无需密码）
    - `brokerHost`：VLServer 局域网地址（现场勿用 `127.0.0.1`）
-   - `advertisePort`：展项自身 TCP 监听端口（SDK 不监听）
+   - `advertisePort`：展项自身收指令的监听端口（TCP 或 UDP，SDK 不监听）
 4. 在空场景中新建独立 GameObject，挂载 `VLAgentBootstrap`（内部的 `VLAgentBehaviour` 默认切场景不销毁）。
 5. （可选）同物体再挂 `FakeTelemetryDemo`，演示 `ReportState` 假进度/音量。
-6. 同物体挂 `FixedTcpCommandServer`：按 `advertisePort` 监听，接收中控 FixedTcp 指令（Console 会打印原文）。
+6. 同物体挂收指令脚本，二者按设备档案的接入方式**选一个**，都按 `advertisePort` 监听、Console 打印原文：
+   - `FixedTcpCommandServer`：档案为 FixedTcp。短连接一行文本 + `\n`，可回 ACK。
+   - `FixedUdpCommandServer`：档案为 FixedUdp。一包一条、**无换行**、不回执，适合原本就只听 UDP 的老展项。
+   两个都挂且端口相同会启动失败（UDP/TCP 端口互不冲突，但同类重复监听会冲突）。
 7. 启动 VLServer 后进入 Play Mode。
 
 验证：
@@ -21,4 +24,6 @@
 - 停止 Play Mode 应发布 retained `online:false`。
 - 强制结束 Unity Player 时由 Broker LWT 发布 `online:false`。
 
-SDK 不订阅 `cmd`。业务指令用 `FixedTcpCommandServer`（或展项自写 TCP）接收；设备档案须为 FixedTcp，端口与 `advertisePort` 一致。
+SDK 不订阅 `cmd`。业务指令用 `FixedTcpCommandServer` / `FixedUdpCommandServer`（或展项自写 TCP/UDP）接收；设备档案的接入方式与端口须与实际监听一致（端口取 `advertisePort`）。
+
+UDP 是无连接通道：中控只能确认「包已发出」，不能确认展项收到或执行。要确认送达请用 TCP 或 HTTP。
