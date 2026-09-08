@@ -24,7 +24,7 @@ namespace VenueLink.VLAgent.Unity
     /// </summary>
     public static class HostInfo
     {
-        public const string AgentVersion = "0.3.6";
+        public const string AgentVersion = "0.3.7";
 
         public static HostInfoSnapshot Capture(string brokerHost, int brokerPort)
         {

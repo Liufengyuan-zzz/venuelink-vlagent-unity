@@ -1,8 +1,9 @@
 # Changelog
 
-## 0.3.7 - 2026-09-06
+## 0.3.7 - 2026-09-08
 
 - 中控删除已入库设备后，再用旧密钥连接会被拒绝。SDK 此时清除本地 `mqttPassword` / 正式 `deviceId`，回到待确认并重新 register。展项不用再手工删配置里的密钥。
+- 原子写配置改为 `Delete` + 两参数 `File.Move`，兼容 Unity Mono（无 `File.Move(src, dest, overwrite)`）。
 
 ## 0.3.6 - 2026-08-31
 

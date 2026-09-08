@@ -2,13 +2,14 @@
 
 适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
 
-当前 `0.3.6` 提供：
+当前 `0.3.7` 提供：
 
 - MQTT TCP 连接与自动重连
 - 有界随机重连抖动，避免多个 Agent 同时形成重连尖峰
 - 连接后发布 `register`（IP / MAC / 端口 / hostname）
 - retained 在线心跳；单次发布异常后继续后续心跳
-- 已确认身份与 MQTT 凭据原子持久化
+- 已确认身份与 MQTT 凭据原子持久化（兼容 Unity Mono 的两参数 `File.Move`）
+- 中控删除设备后清除本地密钥并回到待确认
 - `ReportState` / `ClearState`：上报业务运行态（进度、音量等）
 - 正常退出 `online:false`
 - 异常退出 LWT `online:false`
@@ -21,7 +22,7 @@
 Unity Package Manager → 左上 `+` → Add package from git URL，填：
 
 ```text
-https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.6
+https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7
 ```
 
 `#` 后面是版本 tag，不写则取最新 `main`。现场交付建议锁定 tag，避免升级带来意外。
@@ -31,7 +32,7 @@ https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.6
 ```json
 {
   "dependencies": {
-    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.6"
+    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7"
   }
 }
 ```

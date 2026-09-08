@@ -164,11 +164,10 @@ namespace VenueLink.VLAgent.Unity
             try
             {
                 File.WriteAllText(tempPath, contents);
-                // Unity / netstandard 没有 File.Move(src, dest, overwrite)。
+                // Unity Mono 没有 File.Move(src, dest, overwrite)。
                 if (File.Exists(fullPath))
-                    File.Replace(tempPath, fullPath, destinationBackupFileName: null);
-                else
-                    File.Move(tempPath, fullPath);
+                    File.Delete(fullPath);
+                File.Move(tempPath, fullPath);
             }
             finally
             {
