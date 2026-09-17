@@ -1,34 +1,22 @@
 # VenueLink VLAgent Unity SDK
 
-适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
+适用于 Unity 2022.3 LTS。第一次对接请看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
 
-当前 `0.3.8` 提供：
+当前 **0.3.8**：连中控、上报在线、Inspector 配指令并导出给中控追加导入。
 
-- MQTT TCP 连接与自动重连
-- 有界随机重连抖动，避免多个 Agent 同时形成重连尖峰
-- 连接后发布 `register`（IP / MAC / 端口 / hostname）
-- retained 在线心跳；单次发布异常后继续后续心跳
-- 已确认身份与 MQTT 凭据原子持久化（兼容 Unity Mono 的两参数 `File.Move`）
-- 中控删除设备后清除本地密钥并回到待确认
-- `ReportState` / `ClearState`：上报业务运行态（进度、音量等）
-- `VLCommandTable`：Inspector 配指令，按 payload 触发 UnityEvent；可导出 `.vlconfig` 给中控追加导入
-- 正常退出 `online:false`
-- 异常退出 LWT `online:false`
-- `StreamingAssets/vlagent.json` 配置（导入后自动创建，已有不覆盖）
+SDK **不**开业务端口、**不**订阅 MQTT `cmd`。收指令用 Sample 的 TCP/UDP，或自己 Listen。
 
-不提供：MQTT `cmd/ack` 订阅、TCP/HTTP Server（Sample 里有示例）、设置页面、Server→Pad 转发。
+## 安装
 
-## 引用
-
-Unity Package Manager → 左上 `+` → Add package from git URL，填：
+Package Manager → 左上 `+` → Add package from git URL：
 
 ```text
 https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.8
 ```
 
-`#` 后面是版本 tag，不写则取最新 `main`。现场交付建议锁定 tag，避免升级带来意外。
+现场交付请带 `#v0.3.8`。不写 tag 则跟 `main`。改 SDK 源码时才 Add package from disk，选本目录 `package.json`。
 
-也可直接写进工程的 `Packages/manifest.json`，团队成员打开工程即自动拉取：
+也可写进工程 `Packages/manifest.json`：
 
 ```json
 {
@@ -38,19 +26,22 @@ https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.8
 }
 ```
 
-升级换 tag 即可。要改 SDK 源码时才用 Add package from disk 选 `packages/VLAgent.Unity/package.json`。
+## 接入中控
 
-## 配置
+1. 导入后会自动创建 `Assets/StreamingAssets/vlagent.json`（已有不覆盖）。菜单：`VenueLink → VLAgent → 补全 vlagent.json`。
+2. 改 `brokerHost`（本机联调 `127.0.0.1`，现场填中控局域网 IP）、`advertisePort`（展项自己 Listen 的端口）。
+3. 独立空物体挂 `VLAgentBehaviour`（默认切场景不销毁，不要和会卸场景的业务物体绑在一起）。
+4. 先开 VLServer，再 Play。中控「设备管理 → 待确认 Agent」里确认入库，默认 FixedTcp。
 
-导入本 SDK 后，Unity 会自动创建 `Assets/StreamingAssets/`（没有就建）和 `vlagent.json`。**已有文件不会覆盖。** 也可菜单：`VenueLink → VLAgent → 补全 vlagent.json`。
+`deviceId` / `mqttPassword` 由中控签发，写到 `persistentDataPath`，不改 StreamingAssets。IP / MAC 不用填，启动时自动采。
 
-SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` 写到 `persistentDataPath`，不改 StreamingAssets。下次启动用模板的连接参数，再叠加上一份身份。**展项自己的通信代码（TCP/HTTP 监听、回执）也必须读同一份文件**，不要在 Inspector 或代码里另写一套 IP/端口。创建后请立刻改 `brokerHost`、`advertisePort`。
+待确认列表里的 IP 只是候选；多网卡时要改成展项真正收指令的那张网，再点确认。
 
 ```json
 {
   "deviceId": "",
   "identityAssigned": false,
-  "brokerHost": "192.168.1.10",
+  "brokerHost": "127.0.0.1",
   "brokerPort": 1883,
   "heartbeatIntervalMs": 3000,
   "reconnectDelayMs": 2000,
@@ -61,50 +52,46 @@ SDK 读这份文件连中控；确认入库后的 `deviceId` / `mqttPassword` �
 
 | 字段 | 谁填 | 含义 |
 |---|---|---|
-| `deviceId` | 中控签发 | 未入库可留空（SDK 生成临时 sessionId）。确认后写入正式 id。身份：待确认 `agent-pending-{sessionId}`，已入库 `agent-{deviceId}`。 |
-| `identityAssigned` | SDK 维护 | 身份状态的唯一判断依据。首次注册为 `false`；收到正式凭据后先改为 `true`，再与 `deviceId`、`mqttPassword` 通过同目录临时文件原子写回。旧配置缺少该字段且密码非空时归一化为 `true`；显式 `false` 优先于文件里遗留的旧密码。 |
-| `mqttPassword` | 确认入库后 | 中控签发；未入库留空。确认后与 `deviceId` 一并写回。 |
-| `brokerHost` / `brokerPort` | 人工 | **中控 VLServer 的地址**，不是展项自己的地址。本机联调用 `127.0.0.1`；现场填中控局域网 IP（如 `192.168.1.10`），端口默认 `1883`。 |
-| `advertisePort` | 人工 | **展项程序真正监听、收中控指令的 TCP 端口**。SDK **不会**帮你开这个端口。展项通信代码必须读这个字段再 `Listen`。 |
-| `heartbeatIntervalMs` | 一般不用改 | 心跳间隔，允许 `[500, 10000]` ms，默认 3000。超限钳制到边界并打警告，不抛异常。 |
-| `reconnectDelayMs` | 一般不用改 | 断线重连等待，允许 `[500, 10000]` ms，默认 2000。超限钳制到边界并打警告，不抛异常。 |
+| `deviceId` | 中控签发 | 未入库可空。确认后写入。 |
+| `identityAssigned` | SDK 维护 | 是否已入库。不要手改。 |
+| `mqttPassword` | 确认入库后 | 中控签发。 |
+| `brokerHost` / `brokerPort` | 人工 | **中控**地址，不是展项自己的 IP。端口默认 `1883`。 |
+| `advertisePort` | 人工 | 展项 Listen 的端口。SDK 不会帮你开。 |
+| 后两个 | 一般不用改 | 心跳 / 重连间隔，单位 ms。 |
 
-**IP / MAC 不用写进 JSON。** SDK 启动时会自动探测：选一张「能访问到 `brokerHost`」的本机网卡，把该网卡的 IPv4 和 MAC 上报给中控。
+TCP/UDP 监听必须读同一份 `advertisePort`，不要在 Inspector 另写端口。
 
-正式设备丢失本地密码时应保留 `deviceId` 和 `identityAssigned=true`。SDK 会继续使用 `agent-{deviceId}`；管理员在中控为该设备开启限时恢复窗口后，SDK 可用空密码接入并取回凭据。恢复窗口关闭或过期时，服务端拒绝空密码连接。
+中控删掉该设备后再开展项：SDK 清掉本地密钥，重新出现在待确认。不必手改 `vlagent.json`。
 
-中控**删除**该设备后再打开展项：旧密钥会被拒绝。SDK 清掉本地签发身份，重新以待确认接入，设备管理里会再出现待确认项。不必再手工改 `vlagent.json` 里的密钥。
+## 指令表与导出
 
-### 开发时怎么用这份配置
+`vlagent.json` 不用改。在收指令的**同一物体**上挂 `VLCommandTable`，和 Sample 的 `FixedTcpCommandServer`（或 `FixedUdpCommandServer`）一起。
 
-1. SDK：`AgentConfigLoader.Load()`（或挂 `VLAgentBehaviour`）。只读模板时仍可用 `LoadFromStreamingAssets()`。
-2. 展项通信：同样读 `vlagent.json` 的 `advertisePort` 再监听。可参考 Sample 的 `FixedTcpCommandServer`。
-3. 中控设备档案若是 FixedTcp：目标就是「确认时的 IP + `advertisePort`」。两边不一致，指令发不到展项。
+Inspector 每条填：
 
-### 现场必须核对 IP
+| 字段 | 填什么 |
+|---|---|
+| id | 留空会自动生成，生成后不要改。追加导入按它判重。 |
+| label | 中控里的显示名，如「播放开场」 |
+| payload | 中控**原样下发**的内容。纯文本即可：`play`、`stop`、`left/001`。不是必须 JSON。 |
+| ackRequired | 对应中控「等回执」。TCP 示例开了回执才会回 ACK。 |
+| 收到后 | 拖展项方法：播视频、切场景等 |
 
-中控「待确认 Agent」里看到的 IP **只是 SDK 自动采到的候选**，不是最终答案。
+导出固定为中控的「文本」格式，不用填十六进制。灯控/Modbus 那种二进制帧导入后再到中控改格式。
 
-机器有多块网卡、VPN、虚拟网卡时，采到的 IP 可能 **不是** 展项程序对外收指令用的那张网。管理员确认前要问清楚：
+菜单 **`VenueLink → VLAgent → 导出指令配置包`**，得到 `.vlconfig`。中控：设置 → 备份与迁移 → **追加导入**。
 
-- 展项 TCP/HTTP 实际绑在哪张网、哪个 IP？
-- 中控能否访问这个 IP + `advertisePort`？
+TCP/UDP 示例会自动 `Dispatch`。自写接收时，主线程调用 `commandTable.Dispatch(line)`，payload 对得上就 Invok「收到后」。
 
-对不上就在确认界面改成通信用的 IP，再点确认。确认后中控才按这个地址发指令。
+## 代码接入（可选）
 
-## 使用
-
-挂载 `VLAgentBehaviour`（请用独立空物体）。默认切场景不销毁；重复挂载会丢掉后进场景的那份。不要和会随场景卸载的业务物体绑在一起。也可：
+不挂 Behaviour 也可以：
 
 ```csharp
 var config = AgentConfigLoader.Load();
 var agent = new VLAgentClient(config);
 await agent.StartAsync();
 
-// 网卡切换后可手动重报
-await agent.ReportRegisterAsync();
-
-// 业务运行态（进度 / 音量等）
 await agent.ReportStateAsync(new AgentState
 {
     mode = "manual",
@@ -122,11 +109,10 @@ await agent.StopAsync();
 agent.Dispose();
 ```
 
-推荐 `state` 字段见开发文档 §5.4；全部可选，建议变化时上报且不超过约 1Hz。Basic Sample 的 `FakeTelemetryDemo` 可演示假进度上报。
+`ReportState` 全部可选，变化时上报即可，建议不超过约 1Hz。Sample 的 `FakeTelemetryDemo` 可看假进度。
 
-## 传输与兼容性
+## 兼容性
 
-- Unity：2022.3 LTS
-- API Compatibility Level：.NET Standard 2.1
-- MQTT：TCP，默认端口 1883
-- MQTTnet：4.3.7.1207（MIT，见 Third Party Notices）
+- Unity 2022.3 LTS，API Compatibility Level：.NET Standard 2.1
+- MQTT TCP，默认 1883
+- MQTTnet 4.3.7.1207（MIT，见 Third Party Notices）
