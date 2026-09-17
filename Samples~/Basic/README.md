@@ -12,7 +12,8 @@
    - `FixedTcpCommandServer`：档案为 FixedTcp。短连接一行文本 + `\n`，可回 ACK。
    - `FixedUdpCommandServer`：档案为 FixedUdp。一包一条、**无换行**、不回执，适合原本就只听 UDP 的老展项。
    两个都挂且端口相同会启动失败（UDP/TCP 端口互不冲突，但同类重复监听会冲突）。
-7. 启动 VLServer 后进入 Play Mode。
+7. 同物体再挂 `VLCommandTable`，在 Inspector 填指令（显示名 + payload），把展项方法拖到「收到后」。菜单 `VenueLink → VLAgent → 导出指令配置包`，把 `.vlconfig` 拿到中控追加导入。
+8. 启动 VLServer 后进入 Play Mode。
 
 验证：
 
@@ -24,6 +25,6 @@
 - 停止 Play Mode 应发布 retained `online:false`。
 - 强制结束 Unity Player 时由 Broker LWT 发布 `online:false`。
 
-SDK 不订阅 `cmd`。业务指令用 `FixedTcpCommandServer` / `FixedUdpCommandServer`（或展项自写 TCP/UDP）接收；设备档案的接入方式与端口须与实际监听一致（端口取 `advertisePort`）。
+SDK 不订阅 `cmd`。业务指令用 `FixedTcpCommandServer` / `FixedUdpCommandServer`（或展项自写 TCP/UDP）接收；设备档案的接入方式与端口须与实际监听一致（端口取 `advertisePort`）。自写接收时调用 `VLCommandTable.Dispatch(line)` 即可接到同一张指令表。
 
 UDP 是无连接通道：中控只能确认「包已发出」，不能确认展项收到或执行。要确认送达请用 TCP 或 HTTP。

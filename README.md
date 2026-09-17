@@ -2,7 +2,7 @@
 
 适用于 Unity 2022.3 LTS 的无界面展项接入 SDK。第一次对接请先看 [`VLAgent SDK集成指南`](Documentation~/VLAgent%20SDK集成指南.md)。
 
-当前 `0.3.7` 提供：
+当前 `0.3.8` 提供：
 
 - MQTT TCP 连接与自动重连
 - 有界随机重连抖动，避免多个 Agent 同时形成重连尖峰
@@ -11,18 +11,19 @@
 - 已确认身份与 MQTT 凭据原子持久化（兼容 Unity Mono 的两参数 `File.Move`）
 - 中控删除设备后清除本地密钥并回到待确认
 - `ReportState` / `ClearState`：上报业务运行态（进度、音量等）
+- `VLCommandTable`：Inspector 配指令，按 payload 触发 UnityEvent；可导出 `.vlconfig` 给中控追加导入
 - 正常退出 `online:false`
 - 异常退出 LWT `online:false`
 - `StreamingAssets/vlagent.json` 配置（导入后自动创建，已有不覆盖）
 
-不提供：业务 `cmd/ack`、TCP/HTTP Server、设置页面、Server→Pad 转发。
+不提供：MQTT `cmd/ack` 订阅、TCP/HTTP Server（Sample 里有示例）、设置页面、Server→Pad 转发。
 
 ## 引用
 
 Unity Package Manager → 左上 `+` → Add package from git URL，填：
 
 ```text
-https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7
+https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.8
 ```
 
 `#` 后面是版本 tag，不写则取最新 `main`。现场交付建议锁定 tag，避免升级带来意外。
@@ -32,7 +33,7 @@ https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7
 ```json
 {
   "dependencies": {
-    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7"
+    "com.venuelink.vlagent": "https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.8"
   }
 }
 ```

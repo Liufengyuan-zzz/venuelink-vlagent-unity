@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
+using VenueLink.VLAgent.Unity;
 
 namespace VenueLink.VLAgent.Samples
 {
@@ -31,6 +32,10 @@ namespace VenueLink.VLAgent.Samples
         [SerializeField]
         private StringUnityEvent onCommandReceived;
 
+        [SerializeField]
+        [Tooltip("留空则自动取同物体上的 VLCommandTable。")]
+        private VLCommandTable commandTable;
+
         private TcpListener _listener;
         private Thread _acceptThread;
         private volatile bool _running;
@@ -40,6 +45,8 @@ namespace VenueLink.VLAgent.Samples
 
         private void Start()
         {
+            if (commandTable == null)
+                commandTable = GetComponent<VLCommandTable>();
             TryApplyPortFromConfig();
             StartServer();
         }
@@ -54,9 +61,8 @@ namespace VenueLink.VLAgent.Samples
                 CommandReceived?.Invoke(line);
                 if (onCommandReceived != null)
                     onCommandReceived.Invoke(line);
-
-                // 在此根据 line 驱动你的展项逻辑，例如：
-                // if (line.Contains("play")) { ... }
+                if (commandTable != null)
+                    commandTable.Dispatch(line);
             }
         }
 

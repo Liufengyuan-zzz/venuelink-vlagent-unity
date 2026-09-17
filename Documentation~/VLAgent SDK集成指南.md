@@ -38,8 +38,8 @@ SDK 的名字叫 **VLAgent**。嵌进去之后：
 
 | 你的程序            | 用这个                                                              | 版本    |
 | --------------- | ---------------------------------------------------------------- | ----- |
-| Unity 2022.3    | git URL：`github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git` | 0.3.7 |
-| Electron 或 Node | npm：`@venuelink/vlagent`                                         | 0.1.3 |
+| Unity 2022.3    | git URL：`github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git` | 0.3.8 |
+| Electron 或 Node | npm：`@venuelink/vlagent`                                         | 0.1.4 |
 
 
 两份配置文件、字段、行为相同。下面先写公共步骤，再分语言。
@@ -114,12 +114,24 @@ app.on("before-quit", async (e) => {
 });
 ```
 
+指令用代码配，不要改 `vlagent.json`：
+
+```js
+import { dispatchCommand, exportCommandPackage } from "@venuelink/vlagent";
+
+const commands = [
+  { id: "japan-play-intro", label: "播放开场", payload: '{"clip":"intro"}', onReceived: () => playIntro() }
+];
+
+exportCommandPackage(commands, "./commands.vlconfig");
+```
+
 程序退出时调用 `stop()`，中控会显示正常下线。崩溃没走到 `stop()` 时，中控过几秒也会显示离线。
 
 ### Unity（2022.3 LTS）
 
 1. Package Manager → 左上 `+` → **Add package from git URL** → 填
-   `https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.7`
+   `https://github.com/Liufengyuan-zzz/venuelink-vlagent-unity.git#v0.3.8`
    （`#` 后是版本 tag，现场交付建议锁定；不写则取最新）
 2. 导入后会自动生成 `Assets/StreamingAssets/vlagent.json`（已有文件不覆盖）
 3. 改这个 JSON 里的 `deviceId`、`brokerHost`、`advertisePort`
@@ -137,6 +149,8 @@ await agent.StartAsync();
 
 可导入包内 **Basic Agent Sample**，里面有配置示例和 TCP 收指令示例。
 
+在收指令的同一物体上再挂 `VLCommandTable`，Inspector 里填显示名和 payload，把播放等方法拖到「收到后」。菜单 `VenueLink → VLAgent → 导出指令配置包`，中控「备份与迁移」里**追加导入**即可，不用再手抄指令。`id` 生成后不要改，重复导出不会在中控复制出一堆。
+
 ---
 
 ## 6. 你还要自己收指令
@@ -147,9 +161,12 @@ await agent.StartAsync();
 
 ```js
 import { createServer } from "node:net";
-import { loadConfig } from "@venuelink/vlagent";
+import { dispatchCommand, loadConfig } from "@venuelink/vlagent";
 
 const { advertisePort } = loadConfig("./vlagent.json");
+const commands = [
+  { id: "japan-play-intro", label: "播放开场", payload: '{"clip":"intro"}', onReceived: () => playIntro() }
+];
 
 createServer((socket) => {
   let buf = "";
@@ -159,14 +176,13 @@ createServer((socket) => {
     const n = buf.indexOf("\n");
     if (n < 0) return;
     const line = buf.slice(0, n).trim();
-    console.log("收到指令", line);
-    // 在这里播放 / 切场景
+    dispatchCommand(line, commands);
     socket.end();
   });
 }).listen(advertisePort, "0.0.0.0");
 ```
 
-Unity 可参考 Sample 里的 `FixedTcpCommandServer`：同样读 `vlagent.json` 的端口再 `Listen`。
+Unity 可参考 Sample 里的 `FixedTcpCommandServer`：同样读 `vlagent.json` 的端口再 `Listen`。同物体挂 `VLCommandTable` 时会按 payload 自动分发，不必再自己 `switch`。
 
 指令内容长什么样，问现场中控怎么配。常见是一行 JSON，例如 `{"action":"play","target":"japan"}`，也可能是普通文本。你按自己程序能懂的格式解析即可。
 
@@ -188,7 +204,7 @@ Unity 可参考 Sample 里的 `FixedTcpCommandServer`：同样读 `vlagent.json`
 
 没出现在待确认：看展项日志是否连上；检查 `brokerHost` 是不是中控 IP、防火墙是否挡住 1883。
 
-中控里删掉这台设备后再开展项：SDK 会丢掉旧密钥，重新出现在待确认列表。不必再去改 `vlagent.json`。Unity 需要 **0.3.7**，JS 需要 **0.1.3**。
+中控里删掉这台设备后再开展项：SDK 会丢掉旧密钥，重新出现在待确认列表。不必再去改 `vlagent.json`。Unity 需要 **0.3.8**，JS 需要 **0.1.4**。
 
 ---
 

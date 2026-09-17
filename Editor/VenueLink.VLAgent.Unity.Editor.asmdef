@@ -1,7 +1,9 @@
 {
   "name": "VenueLink.VLAgent.Unity.Editor",
   "rootNamespace": "VenueLink.VLAgent.Unity.Editor",
-  "references": [],
+  "references": [
+    "VenueLink.VLAgent.Unity"
+  ],
   "includePlatforms": [
     "Editor"
   ],

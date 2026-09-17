@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.8 - 2026-09-17
+
+- 新增 `VLCommandTable`：在 Inspector 配置指令，并把收到的 payload 分发到 UnityEvent（播放、切场景等）。
+- 菜单 `VenueLink → VLAgent → 导出指令配置包`：打只含 `commands.json` 的 `.vlconfig`，中控追加导入即可。
+- Basic Sample 的 TCP/UDP 收指令脚本与同物体上的 `VLCommandTable` 自动对接。
+
 ## 0.3.7 - 2026-09-08
 
 - 中控删除已入库设备后，再用旧密钥连接会被拒绝。SDK 此时清除本地 `mqttPassword` / 正式 `deviceId`，回到待确认并重新 register。展项不用再手工删配置里的密钥。
